@@ -42,6 +42,7 @@ namespace MicroserviceDB
 
     public class Prices : BaseEntity
     {
+        public int Id { get; set; }
         public decimal PriceValue { get; set; }
         public DateTime StartDate { get; set; }
         public DateTime EndDate { get; set; }

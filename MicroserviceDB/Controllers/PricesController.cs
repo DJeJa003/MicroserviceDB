@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Newtonsoft.Json;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
@@ -67,6 +68,36 @@ namespace MicroserviceDB.Controllers
             }
         }
 
+        [HttpGet("GetPriceDifference")]
+        public async Task<IActionResult> GetPriceDifference([FromQuery] DateTime? startDate, DateTime? endDate, decimal? price)
+        {
+            if(startDate == null || endDate == null || price == null) 
+            { 
+                return BadRequest("Please set correct dates and a price"); 
+            }
+
+            try
+            {
+                var prices = await _context.Prices
+                    .Where(x => x.StartDate >= startDate && x.EndDate <= endDate)
+                    .ToListAsync();
+                if (prices.Count == 0)
+                {
+                    return NotFound("No prices found within the specified dates");
+                }
+                string jsonData = "{ \"prices\": " + JsonConvert.SerializeObject(prices) + "}";
+                var comparer = new Comparer();
+                var exchangePrices = comparer.DeserializeJson(prices);
+                var priceDifference = comparer.ComparePrices(exchangePrices, price);
+                return Ok(priceDifference);
+            }
+            catch (Exception)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, "Error occurred while fetching price differences.");
+                throw;
+            }
+        }
+
 
         [HttpPost("FetchAndSaveElectricityData")]
         public async Task<IActionResult> FetchAndSaveElectricityData()
@@ -88,12 +119,15 @@ namespace MicroserviceDB.Controllers
                         {
                             PriceValue = entry.Price,
                             StartDate = DateTime.Parse(entry.StartDate),
-                            EndDate = DateTime.Parse(entry.EndDate)
+                            EndDate = DateTime.Parse(entry.EndDate),
+                            CreatedDate = DateTime.Parse(entry.StartDate),
+                            UpdatedDate = DateTime.Parse(entry.EndDate)
                         };
 
                         if (!_context.Prices.Any(p => p.PriceValue == spotPrice.PriceValue && p.StartDate == spotPrice.StartDate && p.EndDate == spotPrice.EndDate))
                         {
                             _context.Prices.Add(spotPrice);
+                            UpdateEntityDates(spotPrice);
                             await _context.SaveChangesAsync();
                         }
                     }
@@ -139,6 +173,15 @@ namespace MicroserviceDB.Controllers
             }
         }
 
+        private void UpdateEntityDates(BaseEntity entity)
+        {
+            // Update the UpdatedDate property to the current date and time
+            entity.UpdatedDate = DateTime.Now;
+
+            // If you want to explicitly mark the entity as modified in Entity Framework Core,
+            // you can use the Entry method and State property
+            _context.Entry(entity).State = EntityState.Modified;
+        }
 
 
 
@@ -152,7 +195,6 @@ namespace MicroserviceDB.Controllers
             public decimal Price { get; set; }
             public string StartDate { get; set; }
             public string EndDate { get; set; }
-            // Add other properties if needed
         }
 
 
