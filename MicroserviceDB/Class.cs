@@ -17,6 +17,11 @@
         public DateTime StartDate { get; set; }
         public DateTime EndDate { get; set; }
         public ElectricityContractType CheaperContract { get; set; }
+        public string ContractType => GetContractType(CheaperContract);
+        private string GetContractType(ElectricityContractType contractType)
+        {
+            return contractType == ElectricityContractType.MarketPrice ? "Market Price" : "Fixed Price";
+        }
 
         public PriceDifference(decimal priceDifference, DateTime startDate, DateTime endDate, ElectricityContractType cheaperContract)
         {

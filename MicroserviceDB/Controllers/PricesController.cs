@@ -43,6 +43,8 @@ namespace MicroserviceDB.Controllers
         //    }
         //}
 
+        //laita palautuksen yhteyteen että tuomas kattonut jo, siivoa koodi
+
 
         [HttpGet("GetPricesFromRange")]
         public async Task<IActionResult> GetPricesFromRange([FromQuery] DateTime? startDate, DateTime? endDate, int pageNumber, int pageSize)
@@ -68,8 +70,40 @@ namespace MicroserviceDB.Controllers
             }
         }
 
-        [HttpGet("GetPriceDifference")]
-        public async Task<IActionResult> GetPriceDifference([FromQuery] DateTime? startDate, DateTime? endDate, decimal? price)
+        [HttpGet("GetPriceSumAndDifference")]
+        public async Task<IActionResult> GetPriceAndSumDifference([FromQuery] DateTime? startDate, DateTime? endDate, decimal? fixedPrice)
+        {
+            if(startDate == null || endDate == null || fixedPrice == null)
+            {
+                return BadRequest("Please set correct dates and a price");
+            }
+
+            try
+            {
+                var prices = await _context.Prices
+                    .Where(x => x.StartDate >= startDate && x.EndDate <= endDate)
+                    .ToListAsync();
+
+                if (prices.Count == 0)
+                {
+                    return NotFound("No prices found within the specified dates");
+                }
+
+                var comparer = new Comparer();
+                var sum = comparer.CalculateSum(prices);
+                var difference = comparer.CalculateDifference(sum, fixedPrice, prices.Count);
+
+                return Ok(new { SpotPriceSum = sum, DifferenceToFixed = difference });
+            }
+            catch (Exception)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, "Error occurred while calculating price sum and difference.");
+                throw;
+            }
+        }
+
+        [HttpGet("GetPriceDifferenceHourly")]
+        public async Task<IActionResult> GetPriceDifferenceHourly([FromQuery] DateTime? startDate, DateTime? endDate, decimal? price)
         {
             if(startDate == null || endDate == null || price == null) 
             { 
@@ -81,14 +115,14 @@ namespace MicroserviceDB.Controllers
                 var prices = await _context.Prices
                     .Where(x => x.StartDate >= startDate && x.EndDate <= endDate)
                     .ToListAsync();
+
                 if (prices.Count == 0)
                 {
                     return NotFound("No prices found within the specified dates");
                 }
-                string jsonData = "{ \"prices\": " + JsonConvert.SerializeObject(prices) + "}";
+
                 var comparer = new Comparer();
-                var exchangePrices = comparer.DeserializeJson(prices);
-                var priceDifference = comparer.ComparePrices(exchangePrices, price);
+                var priceDifference = comparer.ComparePrices(prices, price);
                 return Ok(priceDifference);
             }
             catch (Exception)
@@ -152,6 +186,7 @@ namespace MicroserviceDB.Controllers
                     .Where(g => g.Count() > 1)
                     .Select(g => new { Key = g.Key, Count = g.Count() })
                     .ToList();
+
 
                 foreach (var entry in duplicateEntries)
                 {

@@ -14,6 +14,34 @@ namespace MicroserviceDB
     }
     public class Comparer
     {
+        public decimal CalculateSum(List<Prices> exchangePrices)
+        {
+            decimal sum = 0;
+
+            foreach (var exchangePrice in exchangePrices) 
+            {
+                if (exchangePrice.PriceValue != null)
+                {
+                    sum += exchangePrice.PriceValue;
+                }
+                else
+                {
+                    Console.WriteLine("Error");
+                }
+            }
+            return sum;
+        }
+
+        public decimal CalculateDifference(decimal sum, decimal? fixedPrice, int itemCount)
+        {
+            if (!fixedPrice.HasValue)
+            {
+                throw new ArgumentException("Fixed price can't be null");
+            }
+            decimal fixedPriceSum = fixedPrice.Value * itemCount;
+
+            return sum - fixedPriceSum; 
+        }
         public List<PriceDifference> ComparePrices(List<Prices> exchangePrices, decimal? fixedPrice)
         {
             if (!fixedPrice.HasValue)
@@ -29,7 +57,7 @@ namespace MicroserviceDB
                 decimal? exchangePriceValue = exchangePrice.PriceValue;
                 if (exchangePriceValue.HasValue)
                 {
-                    decimal differenceValue = Math.Abs(exchangePriceValue.Value - fixedPrice.Value);
+                    decimal differenceValue = exchangePriceValue.Value - fixedPrice.Value;
                     ElectricityContractType cheaperContract = exchangePriceValue < fixedPrice
                         ? ElectricityContractType.MarketPrice
                         : ElectricityContractType.FixedPrice;
