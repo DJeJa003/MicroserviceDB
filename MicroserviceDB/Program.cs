@@ -27,11 +27,11 @@ namespace MicroserviceDB
         public static void Main(string[] args)
         {
             var builder = WebApplication.CreateBuilder(args);
-            builder.Services.AddDbContext<MyDbContext>(options =>
-            {
-                options.UseSqlServer(@"Server=(localdb)\MSSQLLocalDB;Initial Catalog=Prices;Integrated Security=True;");
-            });
-
+            builder.Services.AddDbContext<MyDbContext>();
+            //builder.Services.AddDbContext<MyDbContext>(options =>
+            //{
+            //    options.UseSqlServer(@"Server=(localdb)\MSSQLLocalDB;Initial Catalog=Prices;Integrated Security=True;");
+            //});
 
             // Add services to the container.
             builder.Services.AddHttpClient();

@@ -18,12 +18,21 @@ namespace MicroserviceDB
         {
         }
 
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            base.OnModelCreating(modelBuilder);
+
+            // Configure Prices entity
+            modelBuilder.Entity<Prices>()
+                .HasKey(p => p.Id); // Set Id as the primary key
+        }
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
             optionsBuilder.UseSqlServer(@"Server=(localdb)\MSSQLLocalDB;Integrated Security=True;MultipleActiveResultSets=true;");
             optionsBuilder.LogTo(Console.WriteLine);
 
         }
+
     }
 
     public class MyEntity
@@ -31,9 +40,8 @@ namespace MicroserviceDB
         public int Id { get; set; }
     }
 
-    public class Prices
+    public class Prices : BaseEntity
     {
-        public int Id { get; set; }
         public decimal PriceValue { get; set; }
         public DateTime StartDate { get; set; }
         public DateTime EndDate { get; set; }

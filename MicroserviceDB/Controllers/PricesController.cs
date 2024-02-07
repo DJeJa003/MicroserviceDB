@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Newtonsoft.Json;
 using System;
@@ -25,27 +26,47 @@ namespace MicroserviceDB.Controllers
             _electricityDataUrl = configuration.GetValue<string>("ExternalServiceUrls:ElectricityDataUrl");
         }
 
-        //[HttpGet("GetSahko")]
-        //public IActionResult GetSpotPrice()
+
+        //[HttpPost("AddSpotPrice")]
+        //public async Task<IActionResult> AddSpotPrice([FromBody] Prices spotPrice)
         //{
-        //    var spotPrices = _context.Prices.ToList();
-        //    return Ok(spotPrices);
+        //    try
+        //    {
+        //        _context.Prices.Add(spotPrice);
+        //        await _context.SaveChangesAsync();
+        //        return Ok("Spot price added successfully.");
+        //    }
+        //    catch (Exception e)
+        //    {
+        //        return StatusCode(500, $"Error adding spot price: {e.Message}");
+        //    }
         //}
 
-        [HttpPost("AddSpotPrice")]
-        public async Task<IActionResult> AddSpotPrice([FromBody] Prices spotPrice)
+
+        [HttpGet("GetPricesFromRange")]
+        public async Task<IActionResult> GetPricesFromRange([FromQuery] DateTime? startDate, DateTime? endDate, int pageNumber, int pageSize)
         {
+            if(startDate == null || endDate == null)
+            {
+                return BadRequest("Please set correct dates");
+            }
             try
             {
-                _context.Prices.Add(spotPrice);
-                await _context.SaveChangesAsync();
-                return Ok("Spot price added successfully.");
+                var prices = await _context.Prices
+                    .Where(x => x.StartDate >= startDate && x.EndDate <= endDate)
+                    .Skip((pageNumber - 1) * pageSize)
+                    .Take(pageSize)
+                    .ToListAsync();
+
+                return Ok(prices);
             }
-            catch (Exception e)
+            catch (Exception) 
             {
-                return StatusCode(500, $"Error adding spot price: {e.Message}");
+                return StatusCode(StatusCodes.Status500InternalServerError, "Virhe tietoja haettaessa");
+                throw;
             }
         }
+
 
         [HttpPost("FetchAndSaveElectricityData")]
         public async Task<IActionResult> FetchAndSaveElectricityData()
@@ -59,24 +80,22 @@ namespace MicroserviceDB.Controllers
 
                     var content = await response.Content.ReadAsStringAsync();
 
-                    // Deserialize the received content to your ElectricityPriceData model
                     var electricityData = JsonConvert.DeserializeObject<ElectricityData>(content);
 
-                    // Iterate through each entry in the "prices" array
                     foreach (var entry in electricityData.Prices)
                     {
-                        // Map the ElectricityPriceData to your Prices model for each entry
                         var spotPrice = new Prices
                         {
                             PriceValue = entry.Price,
                             StartDate = DateTime.Parse(entry.StartDate),
                             EndDate = DateTime.Parse(entry.EndDate)
-                            // You may need additional mapping based on your model
                         };
 
-                        // Save the spotPrice to the database
-                        _context.Prices.Add(spotPrice);
-                        await _context.SaveChangesAsync();
+                        if (!_context.Prices.Any(p => p.PriceValue == spotPrice.PriceValue && p.StartDate == spotPrice.StartDate && p.EndDate == spotPrice.EndDate))
+                        {
+                            _context.Prices.Add(spotPrice);
+                            await _context.SaveChangesAsync();
+                        }
                     }
 
                     return Ok("Data fetched and saved successfully.");
@@ -88,58 +107,47 @@ namespace MicroserviceDB.Controllers
             }
         }
 
-        //public async Task<IActionResult> FetchAndSaveElectricityData()
-        //{
-        //    try
-        //    {
-        //        using (var httpClient = _httpClientFactory.CreateClient())
-        //        {
-        //            var response = await httpClient.GetAsync(_electricityDataUrl);
-        //            response.EnsureSuccessStatusCode();
 
-        //            var content = await response.Content.ReadAsStringAsync();
+        [HttpDelete("DeleteDuplicatePrices")]
+        public async Task<IActionResult> DeleteDuplicatePrices()
+        {
+            try
+            {
+                var duplicateEntries = _context.Prices
+                    .GroupBy(p => new { p.PriceValue, p.StartDate, p.EndDate })
+                    .Where(g => g.Count() > 1)
+                    .Select(g => new { Key = g.Key, Count = g.Count() })
+                    .ToList();
 
-        //            // Deserialize the received content to your ElectricityPriceData model
-        //            var electricityData = JsonConvert.DeserializeObject<ElectricityPriceData>(content);
+                foreach (var entry in duplicateEntries)
+                {
+                    var duplicatesToDelete = _context.Prices
+                        .Where(p => p.PriceValue == entry.Key.PriceValue && p.StartDate == entry.Key.StartDate && p.EndDate == entry.Key.EndDate)
+                        .OrderByDescending(p => p.Id)
+                        .Skip(entry.Count - 1);
 
-        //            // Map the ElectricityPriceData to your Prices model
-        //            //var spotPrice = new Prices
-        //            //{
-        //            //    PriceValue = electricityData.Price,
-        //            //    StartDate = electricityData.StartDate != null ? DateTime.Parse(electricityData.StartDate) : DateTime.MinValue,
-        //            //    EndDate = electricityData.EndDate != null ? DateTime.Parse(electricityData.EndDate) : DateTime.MinValue
-        //            //};
-        //            var spotPrice = new Prices
-        //            {
-        //                PriceValue = electricityData.Price,
-        //                StartDate = DateTime.TryParseExact(electricityData.StartDate, "dd.MM.yyyy HH.mm.ss", CultureInfo.InvariantCulture, DateTimeStyles.None, out var startDate) ? startDate : DateTime.MinValue,
-        //                EndDate = DateTime.TryParseExact(electricityData.EndDate, "dd.MM.yyyy HH.mm.ss", CultureInfo.InvariantCulture, DateTimeStyles.None, out var endDate) ? endDate : DateTime.MinValue
-        //                // You may need additional mapping based on your model
-        //            };
+                    _context.Prices.RemoveRange(duplicatesToDelete);
+                }
 
+                await _context.SaveChangesAsync();
 
-
-
+                return Ok("Duplicate prices deleted successfully.");
+            }
+            catch (Exception e)
+            {
+                return StatusCode(500, $"Error deleting duplicate prices: {e.Message}");
+            }
+        }
 
 
-        //            // Save the spotPrice to the database
-        //            _context.Prices.Add(spotPrice);
-        //            await _context.SaveChangesAsync();
 
-        //            return Ok("Data fetched and saved successfully.");
-        //        }
-        //    }
-        //    catch (HttpRequestException e)
-        //    {
-        //        return StatusCode(500, $"Error fetching and saving data: {e.Message}");
-        //    }
-        //}
+
 
         public class ElectricityData
         {
             public List<ElectricityPriceData> Prices { get; set; }
         }
-        public class ElectricityPriceData
+        public class ElectricityPriceData : BaseEntity
         {
             public decimal Price { get; set; }
             public string StartDate { get; set; }
