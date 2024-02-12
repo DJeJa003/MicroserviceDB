@@ -19,29 +19,15 @@ namespace MicroserviceDB.Controllers
         private readonly MyDbContext _context;
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly string _electricityDataUrl;
+        private ILogger<PricesController> _logger;
 
-        public PricesController(MyDbContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration)
+        public PricesController(MyDbContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, ILogger<PricesController> logger)
         {
             _context = context;
             _httpClientFactory = httpClientFactory;
             _electricityDataUrl = configuration.GetValue<string>("ExternalServiceUrls:ElectricityDataUrl");
+            _logger = logger;
         }
-
-
-        //[HttpPost("AddSpotPrice")]
-        //public async Task<IActionResult> AddSpotPrice([FromBody] Prices spotPrice)
-        //{
-        //    try
-        //    {
-        //        _context.Prices.Add(spotPrice);
-        //        await _context.SaveChangesAsync();
-        //        return Ok("Spot price added successfully.");
-        //    }
-        //    catch (Exception e)
-        //    {
-        //        return StatusCode(500, $"Error adding spot price: {e.Message}");
-        //    }
-        //}
 
         //laita palautuksen yhteyteen että tuomas kattonut jo, siivoa koodi
 
@@ -53,6 +39,7 @@ namespace MicroserviceDB.Controllers
             {
                 return BadRequest("Please set correct dates");
             }
+
             try
             {
                 var prices = await _context.Prices
@@ -63,6 +50,7 @@ namespace MicroserviceDB.Controllers
 
                 return Ok(prices);
             }
+
             catch (Exception) 
             {
                 return StatusCode(StatusCodes.Status500InternalServerError, "Virhe tietoja haettaessa");
@@ -95,6 +83,7 @@ namespace MicroserviceDB.Controllers
 
                 return Ok(new { SpotPriceSum = sum, DifferenceToFixed = difference });
             }
+
             catch (Exception)
             {
                 return StatusCode(StatusCodes.Status500InternalServerError, "Error occurred while calculating price sum and difference.");
@@ -123,8 +112,10 @@ namespace MicroserviceDB.Controllers
 
                 var comparer = new Comparer();
                 var priceDifference = comparer.ComparePrices(prices, price);
+
                 return Ok(priceDifference);
             }
+
             catch (Exception)
             {
                 return StatusCode(StatusCodes.Status500InternalServerError, "Error occurred while fetching price differences.");
@@ -133,8 +124,8 @@ namespace MicroserviceDB.Controllers
         }
 
 
-        [HttpPost("FetchAndSaveElectricityData")]
-        public async Task<IActionResult> FetchAndSaveElectricityData()
+        [HttpPost("GetAndSaveElectricityData")]
+        public async Task<IActionResult> GetAndSaveElectricityData()
         {
             try
             {
@@ -154,8 +145,8 @@ namespace MicroserviceDB.Controllers
                             PriceValue = entry.Price,
                             StartDate = DateTime.Parse(entry.StartDate),
                             EndDate = DateTime.Parse(entry.EndDate),
-                            CreatedDate = DateTime.Parse(entry.StartDate),
-                            UpdatedDate = DateTime.Parse(entry.EndDate)
+                            CreatedDate = DateTime.Now,
+                            UpdatedDate = DateTime.Now
                         };
 
                         if (!_context.Prices.Any(p => p.PriceValue == spotPrice.PriceValue && p.StartDate == spotPrice.StartDate && p.EndDate == spotPrice.EndDate))
@@ -169,6 +160,7 @@ namespace MicroserviceDB.Controllers
                     return Ok("Data fetched and saved successfully.");
                 }
             }
+
             catch (HttpRequestException e)
             {
                 return StatusCode(500, $"Error fetching and saving data: {e.Message}");
@@ -210,29 +202,20 @@ namespace MicroserviceDB.Controllers
 
         private void UpdateEntityDates(BaseEntity entity)
         {
-            // Update the UpdatedDate property to the current date and time
             entity.UpdatedDate = DateTime.Now;
-
-            // If you want to explicitly mark the entity as modified in Entity Framework Core,
-            // you can use the Entry method and State property
-            _context.Entry(entity).State = EntityState.Modified;
         }
-
-
-
 
         public class ElectricityData
         {
             public List<ElectricityPriceData> Prices { get; set; }
         }
+
         public class ElectricityPriceData : BaseEntity
         {
             public decimal Price { get; set; }
             public string StartDate { get; set; }
             public string EndDate { get; set; }
         }
-
-
     }
 }
 

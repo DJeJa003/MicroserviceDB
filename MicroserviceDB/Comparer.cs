@@ -46,7 +46,6 @@ namespace MicroserviceDB
         {
             if (!fixedPrice.HasValue)
             {
-                // Handle the case when fixedPrice is null (if needed)
                 throw new ArgumentException("Fixed price cannot be null");
             }
 
@@ -64,6 +63,7 @@ namespace MicroserviceDB
 
                     differences.Add(new PriceDifference(differenceValue, exchangePrice.StartDate, exchangePrice.EndDate, cheaperContract));
                 }
+
                 else
                 {
                     Console.WriteLine("Error");
