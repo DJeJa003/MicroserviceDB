@@ -29,8 +29,6 @@ namespace MicroserviceDB.Controllers
             _logger = logger;
         }
 
-        //laita palautuksen yhteyteen että tuomas kattonut jo, siivoa koodi
-
 
         [HttpGet("GetPricesFromRange")]
         public async Task<IActionResult> GetPricesFromRange([FromQuery] DateTime? startDate, DateTime? endDate, int pageNumber, int pageSize)
@@ -57,6 +55,7 @@ namespace MicroserviceDB.Controllers
                 throw;
             }
         }
+
 
         [HttpGet("GetPriceSumAndDifference")]
         public async Task<IActionResult> GetPriceAndSumDifference([FromQuery] DateTime? startDate, DateTime? endDate, decimal? fixedPrice)
@@ -91,6 +90,7 @@ namespace MicroserviceDB.Controllers
             }
         }
 
+
         [HttpGet("GetPriceDifferenceHourly")]
         public async Task<IActionResult> GetPriceDifferenceHourly([FromQuery] DateTime? startDate, DateTime? endDate, decimal? price)
         {
@@ -123,7 +123,7 @@ namespace MicroserviceDB.Controllers
             }
         }
 
-
+        // Käyttää nyt edelleen tuota httpClienttia tässä, jatkossa tietää tehdä ilman
         [HttpPost("GetAndSaveElectricityData")]
         public async Task<IActionResult> GetAndSaveElectricityData()
         {
