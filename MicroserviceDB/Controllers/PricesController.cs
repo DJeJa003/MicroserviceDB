@@ -123,7 +123,7 @@ namespace MicroserviceDB.Controllers
             }
         }
 
-        // Käyttää nyt edelleen tuota httpClienttia tässä, jatkossa tietää tehdä ilman
+   
         [HttpPost("GetAndSaveElectricityData")]
         public async Task<IActionResult> GetAndSaveElectricityData()
         {
